@@ -3,28 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Playground • Silent Masonwolf</title>
+  <title>Interactive Playground • Silent Masonwolf</title>
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      margin: 0;
-      background: #0f0f1b;
-      color: #fff;
-      font-family: monospace;
+      background: #0a0a12;
+      color: #e0e0ff;
+      font-family: 'Courier New', monospace;
       overflow: hidden;
-      height: 10 h0vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    h1 {
-      margin-bottom: 1.5rem;
-      font-size: 1.8rem;
-      color: #64ffda;
+      height: 100vh;
+      cursor: none; /* Hide default cursor for custom trail */
     }
     #canvas {
-      border: 1px solid #333;
-      background: #000;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .overlay {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 2rem;
+      pointer-events: none;
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(45deg, #ff7eb3, #64ffda);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: 1px;
+    }
+    .reactive-text {
+      font-size: 1.4rem;
+      margin: 0.5rem 0;
+      transition: transform 0.1s ease, color 0.2s ease;
     }
     .back {
       position: absolute;
@@ -33,6 +50,7 @@
       color: #555;
       text-decoration: none;
       font-size: 0.9rem;
+      pointer-events: auto;
     }
     .back:hover {
       color: #aaa;
@@ -41,61 +59,170 @@
 </head>
 <body>
   <a href="index.html" class="back">← Home</a>
-  <h1>Interactive Zone</h1>
-  <canvas id="canvas" width="600" height="400"></canvas>
+  
+  <div class="overlay">
+    <h1>SILENT INTERACT</h1>
+    <div class="reactive-text" id="text1">Move near me</div>
+    <div class="reactive-text" id="text2">Click to summon particles</div>
+    <div class="reactive-text" id="text3">Explore the void</div>
+  </div>
+
+  <canvas id="canvas"></canvas>
 
   <script>
-    // Example: Click to create bouncing circles
+    // === Canvas Setup ===
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
 
-    // Handle resize
-    function resize() {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = 600 * dpr;
-      canvas.height = 400 * dpr;
-      canvas.style.width = '600px';
-      canvas.style.height = '400px';
-      ctx.scale(dpr, dpr);
-    }
-    resize();
+    canvas.width = width;
+    canvas.height = height;
 
-    const circles = [];
-
-    canvas.addEventListener('click', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      circles.push({
-        x, y,
-        vx: (Math.random() - 0.5) * 6,
-        vy: (Math.random() - 0.5) * 6,
-        r: 10 + Math.random() * 20,
-        color: `hsl(${Math.random() * 360}, 80%, 60%)`
-      });
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     });
 
-    function update() {
-      ctx.clearRect(0, 0, 600, 400);
+    // === Mouse Position ===
+    const mouse = { x: width / 2, y: height / 2, down: false };
+    document.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+    document.addEventListener('mousedown', () => mouse.down = true);
+    document.addEventListener('mouseup', () => mouse.down = false);
 
-      for (let i = 0; i < circles.length; i++) {
-        const c = circles[i];
-        c.x += c.vx;
-        c.y += c.vy;
+    // === Mouse Trail Particles ===
+    const trail = [];
+    const trailLength = 15;
 
-        // Bounce off walls
-        if (c.x - c.r < 0 || c.x + c.r > 600) c.vx *= -1;
-        if (c.y - c.r < 0 || c.y + c.r > 400) c.vy *= -1;
+    // === Generative Drifting Particles ===
+    const particles = [];
+    const particleCount = 80;
 
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
-        ctx.fillStyle = c.color;
-        ctx.fill();
+    class Particle {
+      constructor() {
+        this.reset();
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 3 + 1;
+        this.hue = Math.random() * 360;
       }
 
-      requestAnimationFrame(update);
+      reset() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Drift slowly and loop
+        if (this.x < 0) this.x = width;
+        if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height;
+        if (this.y > height) this.y = 0;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, 0.7)`;
+        ctx.fill();
+      }
     }
-    update();
+
+    // Initialize particles
+    for (let i = 0; i < particleCount; i++) {
+      particles.push(new Particle());
+    }
+
+    // === Reactive Text Elements ===
+    const texts = [
+      { el: document.getElementById('text1'), x: width * 0.5, y: height * 0.4 },
+      { el: document.getElementById('text2'), x: width * 0.5, y: height * 0.5 },
+      { el: document.getElementById('text3'), x: width * 0.5, y: height * 0.6 }
+    ];
+
+    function updateTextPositions() {
+      texts.forEach(t => {
+        const rect = t.el.getBoundingClientRect();
+        t.x = rect.left + rect.width / 2;
+        t.y = rect.top + rect.height / 2;
+      });
+    }
+
+    // === Main Animation Loop ===
+    function animate() {
+      // Fade background for trail persistence
+      ctx.fillStyle = 'rgba(10, 10, 18, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Update & draw generative particles
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+
+      // Add new trail particle
+      trail.push({ x: mouse.x, y: mouse.y, life: 1 });
+      if (trail.length > trailLength) trail.shift();
+
+      // Draw trail with glow
+      trail.forEach((point, i) => {
+        const alpha = (i / trailLength) * 0.8;
+        const size = (i / trailLength) * 12;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(100, 255, 218, ${alpha})`;
+        ctx.fill();
+      });
+
+      // Update reactive text
+      updateTextPositions();
+      texts.forEach(t => {
+        const dx = mouse.x - t.x;
+        const dy = mouse.y - t.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = 200;
+
+        if (dist < maxDist) {
+          const scale = 1 + (1 - dist / maxDist) * 0.3;
+          const hue = 180 + (1 - dist / maxDist) * 120;
+          t.el.style.transform = `scale(${scale})`;
+          t.el.style.color = `hsl(${hue}, 100%, 80%)`;
+        } else {
+          t.el.style.transform = 'scale(1)';
+          t.el.style.color = '#a0a0ff';
+        }
+      });
+
+      // On click: burst of particles
+      if (mouse.down) {
+        for (let i = 0; i < 5; i++) {
+          particles.push(new Particle());
+          const p = particles[particles.length - 1];
+          p.x = mouse.x;
+          p.y = mouse.y;
+          p.vx = (Math.random() - 0.5) * 4;
+          p.vy = (Math.random() - 0.5) * 4;
+          p.size = Math.random() * 4 + 2;
+        }
+        mouse.down = false; // Only burst once per click
+      }
+
+      // Keep drifting particles within limit
+      if (particles.length > 200) {
+        particles.splice(0, 20);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // Start!
+    animate();
   </script>
 </body>
 </html>
